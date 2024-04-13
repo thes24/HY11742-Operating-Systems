@@ -1,0 +1,9 @@
+# Visual Studio Code
+.vscode/
+
+# Makefile
+Makefile
+
+# Other
+os_xv6.tar
+.DS_Store
