@@ -26,7 +26,6 @@ SYSCALL(mkdir)
 SYSCALL(chdir)
 SYSCALL(dup)
 SYSCALL(getpid)
-SYSCALL(getgpid) # Grand Parent Process Id
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)

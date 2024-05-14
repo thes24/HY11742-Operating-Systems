@@ -2,7 +2,7 @@
 .vscode/
 
 # Makefile
-Makefile
+/Makefile
 
 # Other
 os_xv6.tar

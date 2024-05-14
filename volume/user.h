@@ -20,7 +20,6 @@ int mkdir(const char*);
 int chdir(const char*);
 int dup(int);
 int getpid(void);
-int getgpid(void); // Grand Parent Process Id
 char* sbrk(int);
 int sleep(int);
 int uptime(void);

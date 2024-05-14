@@ -42,12 +42,6 @@ sys_getpid(void)
   return myproc()->pid;
 }
 
-// Grand Parent Process Id
-int
-sys_getgpid(void) {
-  return myproc() -> parent -> parent -> pid;
-}
-
 int
 sys_sbrk(void)
 {
