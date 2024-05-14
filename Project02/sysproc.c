@@ -90,13 +90,6 @@ sys_uptime(void)
   return xticks;
 }
 
-// Project01
-// Grand Parent Process Id
-int
-sys_getgpid(void) {
-  return myproc() -> parent -> parent -> pid;
-}
-
 // Project02
 void sys_yield(void) {
   yield();

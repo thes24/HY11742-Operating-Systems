@@ -38,9 +38,6 @@ void* malloc(uint);
 void free(void*);
 int atoi(const char*);
 
-// Project01
-int getgpid(void); // Grand Parent Process Id
-
 // Project02
 void yield(void);
 int getlev(void);

@@ -186,9 +186,6 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
-// Project01
-int             getgpid(void);
-
 // Project02
 int             getlev(void);
 int             setpriority(int pid, int priority);

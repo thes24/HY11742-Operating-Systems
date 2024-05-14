@@ -20,7 +20,6 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_getgpid 22 // Grand Parent Process Id
 #define SYS_yield 23
 #define SYS_getlev 24
 #define SYS_setpriority 25

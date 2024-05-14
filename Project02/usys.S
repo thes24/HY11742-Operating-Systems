@@ -29,7 +29,6 @@ SYSCALL(getpid)
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
-SYSCALL(getgpid) # Grand Parent Process Id
 SYSCALL(yield)
 SYSCALL(getlev)
 SYSCALL(setpriority)
