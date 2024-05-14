@@ -5,5 +5,6 @@
 /Makefile
 
 # Other
-os_xv6.tar
 .DS_Store
+os_xv6.tar
+Original_xv6
