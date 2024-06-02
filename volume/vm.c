@@ -327,16 +327,17 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
+    *pte &= (~PTE_W);
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto bad;
     memmove(mem, (char*)P2V(pa), PGSIZE);
-    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
-      kfree(mem);
+    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
       goto bad;
-    }
+    incr_refc(pa);
   }
+  lcr3(V2P(pgdir));
   return d;
 
 bad:
@@ -392,3 +393,41 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 //PAGEBREAK!
 // Blank page.
 
+void CoW_handler(void) {
+  uint addr;
+  pte_t *pte;
+  char *mem;
+  struct proc *curproc = myproc();
+
+  // Faulting address를 CR2 레지스터에서 가져옵니다.
+  addr = rcr2();
+
+  // 해당 주소에 대한 페이지 테이블 엔트리를 가져옵니다.
+  pte = walkpgdir(curproc->pgdir, (void *)addr, 0);
+  if (!pte || !(*pte & PTE_P)) {
+    cprintf("CoW_handler: page not present\n");
+    curproc->killed = 1;
+    return;
+  }
+
+  uint pa = PTE_ADDR(*pte);
+
+  // 페이지의 참조 횟수를 확인합니다.
+  if (get_refc(pa) > 1) {
+    // 기존 페이지가 다른 프로세스와 공유 중인 경우
+    if ((mem = kalloc()) == 0) {
+      cprintf("CoW_handler: out of memory\n");
+      curproc->killed = 1;
+      return;
+    }
+    // 페이지 복사
+    memmove(mem, (char *)P2V(pa), PGSIZE);
+    decr_refc(pa); // 기존 페이지의 참조 횟수 감소
+    *pte = V2P(mem) | PTE_P | PTE_W | PTE_U; // 새로운 페이지로 교체
+    lcr3(V2P(curproc->pgdir)); // 페이지 테이블 갱신
+  } else {
+    // 페이지가 다른 프로세스와 공유되지 않은 경우
+    *pte |= PTE_W; // 페이지를 쓰기 가능으로 설정
+    lcr3(V2P(curproc->pgdir)); // 페이지 테이블 갱신
+  }
+}

@@ -20,3 +20,8 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+// Project04
+#define SYS_countfp 22
+#define SYS_countvp 23
+#define SYS_countpp 24
+#define SYS_countptp 25

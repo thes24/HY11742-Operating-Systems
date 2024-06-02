@@ -37,3 +37,9 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
+
+// Project04
+int countfp(void);
+int countvp(void);
+int countpp(void);
+int countptp(void);

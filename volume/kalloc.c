@@ -8,6 +8,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "spinlock.h"
+#include "proc.h"
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
@@ -22,6 +23,8 @@ struct {
   int use_lock;
   struct run *freelist;
 } kmem;
+
+int page_ref_count[PHYSTOP / PGSIZE];
 
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
@@ -69,6 +72,12 @@ kfree(char *v)
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
+
+  if (--page_ref_count[V2P(v) / PGSIZE] > 0) {
+    release(&kmem.lock);
+    return;
+  }
+
   r = (struct run*)v;
   r->next = kmem.freelist;
   kmem.freelist = r;
@@ -87,10 +96,96 @@ kalloc(void)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r) {
     kmem.freelist = r->next;
+    uint pa = (uint)r;
+    page_ref_count[pa / PGSIZE] = 1;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;
 }
 
+// Ref Count
+void incr_refc(uint pa) {
+  acquire(&kmem.lock);
+  page_ref_count[pa / PGSIZE]++;
+  release(&kmem.lock);
+}
+
+void decr_refc(uint pa) {
+  acquire(&kmem.lock);
+  if (--page_ref_count[pa / PGSIZE] == 0) {
+    kfree((void*)P2V(pa));
+  }
+  release(&kmem.lock);
+}
+
+int get_refc(uint pa) {
+  int count;
+
+  acquire(&kmem.lock);
+  count = page_ref_count[pa / PGSIZE];
+  release(&kmem.lock);
+
+  return count;
+}
+
+// Count
+int countfp(void) {
+  struct run *r;
+  int count = 0;
+
+  acquire(&kmem.lock);
+  for (r = kmem.freelist; r; r = r -> next) {
+    count++;
+  }
+  release(&kmem.lock);
+
+  return count;
+}
+
+int countvp(void) {
+  struct proc *curproc = myproc();
+  uint sz = curproc -> sz;
+  return sz / PGSIZE;
+}
+
+int countpp(void) {
+  struct proc *curproc = myproc();
+  uint sz = curproc -> sz;
+  uint count = 0;
+
+  for (uint addr = 0; addr < sz; addr += PGSIZE) {
+    pde_t *pde = &curproc -> pgdir[PDX(addr)];
+
+    if (*pde & PTE_P && (addr < KERNBASE || addr >= KERNBASE + PHYSTOP)) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+int countptp(void) {
+  struct proc *curproc = myproc();
+  int count = 0;
+
+  count++;
+
+  pde_t *pgdir = curproc -> pgdir;
+  for(int i = 0; i < NPDENTRIES; i++) {
+    if(pgdir[i] & PTE_P) {
+      count++;
+    }
+  }
+
+  pde_t *kpgdir = (pde_t*)P2V(PGROUNDUP(V2P(pgdir)));
+  for(int j = KERNBASE / PGSIZE; j < NPDENTRIES; j++) {
+    if(kpgdir[j] & PTE_P) {
+      count++;
+    }
+  }
+
+  return count;
+}
