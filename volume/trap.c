@@ -36,10 +36,6 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-  if(tf->trapno == T_PGFLT){
-    CoW_handler();
-    return;
-  }
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
@@ -51,6 +47,9 @@ trap(struct trapframe *tf)
   }
 
   switch(tf->trapno){
+  case T_PGFLT:
+    CoW_handler();
+    break;
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);

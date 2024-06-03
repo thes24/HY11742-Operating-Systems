@@ -24,7 +24,7 @@ struct {
   struct run *freelist;
 } kmem;
 
-int page_ref_count[PHYSTOP / PGSIZE];
+uint page_ref_count[PHYSTOP >> PGSHIFT];
 
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
@@ -51,8 +51,10 @@ freerange(void *vstart, void *vend)
 {
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
-  for(; p + PGSIZE <= (char*)vend; p += PGSIZE)
+  for (; p + PGSIZE <= (char*)vend; p += PGSIZE) {
+    page_ref_count[V2P(p) >> PGSHIFT] = 0;
     kfree(p);
+  }
 }
 //PAGEBREAK: 21
 // Free the page of physical memory pointed at by v,
@@ -67,22 +69,21 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(v, 1, PGSIZE);
-
-  if(kmem.use_lock)
-    acquire(&kmem.lock);
-
-  if (--page_ref_count[V2P(v) / PGSIZE] > 0) {
-    release(&kmem.lock);
-    return;
+  if (get_refc(V2P(v)) > 0) {
+    decr_refc(V2P(v));
   }
 
-  r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  if(kmem.use_lock)
-    release(&kmem.lock);
+  if (get_refc(V2P(v)) == 0) {
+    // Fill with junk to catch dangling refs.
+    if(kmem.use_lock)
+      acquire(&kmem.lock);
+    memset(v, 1, PGSIZE);
+    r = (struct run*)v;
+    r -> next = kmem.freelist;
+    kmem.freelist = r;
+    if(kmem.use_lock)
+      release(&kmem.lock);
+  }
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -98,8 +99,7 @@ kalloc(void)
   r = kmem.freelist;
   if(r) {
     kmem.freelist = r->next;
-    uint pa = (uint)r;
-    page_ref_count[pa / PGSIZE] = 1;
+    page_ref_count[V2P((char*)r) >> PGSHIFT] = 1;
   }
   if(kmem.use_lock)
     release(&kmem.lock);
@@ -108,25 +108,28 @@ kalloc(void)
 
 // Ref Count
 void incr_refc(uint pa) {
-  acquire(&kmem.lock);
-  page_ref_count[pa / PGSIZE]++;
-  release(&kmem.lock);
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  page_ref_count[pa >> PGSHIFT]++;
+  if(kmem.use_lock)
+    release(&kmem.lock);
 }
 
 void decr_refc(uint pa) {
-  acquire(&kmem.lock);
-  if (--page_ref_count[pa / PGSIZE] == 0) {
-    kfree((void*)P2V(pa));
-  }
-  release(&kmem.lock);
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  page_ref_count[pa >> PGSHIFT]--;
+  if(kmem.use_lock)
+    release(&kmem.lock);
 }
 
 int get_refc(uint pa) {
-  int count;
-
-  acquire(&kmem.lock);
-  count = page_ref_count[pa / PGSIZE];
-  release(&kmem.lock);
+  uint count;
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  count = page_ref_count[pa >> PGSHIFT];
+  if(kmem.use_lock)
+    release(&kmem.lock);
 
   return count;
 }
